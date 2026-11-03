@@ -1,0 +1,1 @@
+{"name":"blocks-offline","version":"1.0.0","private":true,"scripts":{"check":"node scripts/check.cjs","android:prepare":"node scripts/prepare-android.mjs"},"dependencies":{"@capacitor/core":"7.0.0","@capacitor/android":"7.0.0"},"devDependencies":{"@capacitor/cli":"7.0.0"},"engines":{"node":">=22"}}

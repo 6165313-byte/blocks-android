@@ -1,0 +1,64 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+permissions:
+  contents: read
+concurrency:
+  group: android-debug-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check preserved game
+        run: npm run check
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;34.0.0'
+      - name: Generate native Android project
+        run: npm run android:prepare
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+      - name: Verify signature and collect APK
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/blocks-debug.apk
+          cd artifacts
+          sha256sum blocks-debug.apk > SHA256SUMS.txt
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: blocks-debug-apk
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve build inputs for diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-inputs
+          path: |
+            package-lock.json
+            android/
+          if-no-files-found: warn
+          retention-days: 7
